@@ -1,0 +1,8 @@
+{
+  "name": "Copy of OUTDOG - Blue Collar Community",
+  "description": "A professional community platform for workers to share experiences, find jobs, and access high-quality customized equipment. Features include social feeds, item shop, and profile management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
