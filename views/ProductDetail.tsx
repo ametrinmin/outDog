@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../constants';
 
@@ -7,105 +7,197 @@ const ProductDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const product = MOCK_PRODUCTS.find(p => p.id === id);
+  
+  const [cartCount, setCartCount] = useState(0);
+  const [cartItems, setCartItems] = useState<any[]>([]);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedSpec, setSelectedSpec] = useState<string>('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
+  const [showCartPreview, setShowCartPreview] = useState(false);
+  const cartIconRef = useRef<HTMLButtonElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  if (!product) return <div className="p-10 text-center">商品不存在</div>;
+  useEffect(() => {
+    if (product?.specs?.length) setSelectedSpec(product.specs[0]);
+    updateCartData();
+    window.addEventListener('storage', updateCartData);
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (previewRef.current && !previewRef.current.contains(e.target as Node) && 
+          cartIconRef.current && !cartIconRef.current.contains(e.target as Node)) {
+        setShowCartPreview(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('storage', updateCartData);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [product]);
+
+  const updateCartData = () => {
+    const cart = JSON.parse(localStorage.getItem('outdog_cart') || '[]');
+    const count = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+    setCartCount(count);
+    const items = cart.slice(-3).map((item: any) => {
+      const p = MOCK_PRODUCTS.find(prod => prod.id === item.productId);
+      return { ...p, quantity: item.quantity };
+    }).reverse();
+    setCartItems(items);
+  };
+
+  const totalPrice = useMemo(() => product ? (product.price * quantity).toFixed(2) : 0, [product, quantity]);
+
+  const triggerFlyAnimation = (startRect: DOMRect) => {
+    if (!cartIconRef.current) return;
+    const endRect = cartIconRef.current.getBoundingClientRect();
+    
+    const container = document.createElement('div');
+    container.className = 'fly-dot-container';
+    const dot = document.createElement('div');
+    dot.className = 'fly-dot';
+    container.appendChild(dot);
+    
+    const startX = startRect.left + startRect.width / 2 - 7;
+    const startY = startRect.top + startRect.height / 2 - 7;
+    
+    container.style.transform = `translate(${startX}px, 0)`;
+    dot.style.transform = `translate(0, ${startY}px)`;
+    
+    document.body.appendChild(container);
+    void container.offsetWidth;
+
+    const moveX = endRect.left + endRect.width / 2 - 7;
+    const moveY = endRect.top + endRect.height / 2 - 7;
+
+    requestAnimationFrame(() => {
+      container.style.transform = `translate(${moveX}px, 0)`;
+      dot.style.transform = `translate(0, ${moveY}px) scale(0.5)`;
+      dot.style.opacity = '0.5';
+    });
+
+    setTimeout(() => {
+      container.remove();
+      setIsJumping(true);
+      setTimeout(() => setIsJumping(false), 500);
+    }, 800);
+  };
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/shop');
+    }
+  };
+
+  if (!product) return <div className="p-10 text-center dark:text-white">商品不存在</div>;
+
+  const handleAddToCart = (e?: React.MouseEvent) => {
+    if (e) {
+      const target = e.currentTarget as HTMLElement;
+      triggerFlyAnimation(target.getBoundingClientRect());
+    }
+    
+    setIsAdding(true);
+    const cart = JSON.parse(localStorage.getItem('outdog_cart') || '[]');
+    const existingItem = cart.find((item: any) => item.productId === product.id && item.spec === selectedSpec);
+    if (existingItem) existingItem.quantity += quantity; else cart.push({ productId: product.id, quantity: quantity, spec: selectedSpec });
+    localStorage.setItem('outdog_cart', JSON.stringify(cart));
+    window.dispatchEvent(new Event('storage'));
+    setTimeout(() => setIsAdding(false), 1500);
+  };
 
   return (
-    <div className="bg-slate-50 min-h-screen animate-in slide-in-from-bottom duration-300 pb-24">
-      <header className="flex items-center justify-between px-4 py-3 bg-white sticky top-0 z-40 border-b border-slate-50">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-slate-100 transition">
-          <span className="material-icons-outlined text-2xl text-slate-700">arrow_back_ios_new</span>
+    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen animate-in slide-in-from-bottom duration-300 pb-40 transition-colors">
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-50 dark:border-slate-800 z-[100] flex items-center justify-between px-4 py-3 transition-colors">
+        <button onClick={handleBack} className="p-2 text-slate-700 dark:text-white active:scale-90 transition-transform">
+          <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
         </button>
-        <h1 className="text-lg font-bold">商品详情</h1>
-        <button className="p-2 rounded-full hover:bg-slate-100 transition relative">
-          <span className="material-icons-outlined text-2xl text-blue-500">shopping_cart</span>
-          <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-        </button>
+        <h1 className="text-lg font-black dark:text-white tracking-tight">商品详情</h1>
+        <div className="relative">
+          <button 
+            ref={cartIconRef} 
+            onClick={() => setShowCartPreview(!showCartPreview)} 
+            className={`p-2 text-slate-900 dark:text-white relative active:scale-95 transition ${isJumping ? 'animate-cart-jump' : ''}`}
+          >
+            <span className="material-symbols-outlined text-2xl">shopping_cart</span>
+            {cartCount > 0 && <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">{cartCount > 99 ? '99+' : cartCount}</span>}
+          </button>
+          {showCartPreview && (
+            <div ref={previewRef} className="absolute right-0 top-12 w-64 bg-white/95 dark:bg-slate-900/95 dropdown-blur rounded-2xl shadow-dropdown border border-slate-100 dark:border-slate-800 p-4 z-[110] animate-fade-in-up">
+              <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">最近加入</h4>
+              {cartItems.length > 0 ? (
+                <div className="space-y-3">
+                  {cartItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-3">
+                      <img src={item.image} className="w-10 h-10 rounded-lg object-cover bg-slate-50 dark:bg-slate-800" alt="" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold dark:text-white truncate">{item.name}</p>
+                        <p className="text-[10px] text-red-500 font-black">¥{item.price} <span className="text-slate-400 font-medium ml-1">x{item.quantity}</span></p>
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => navigate('/cart')} className="w-full py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider mt-2 active:scale-95 transition">查看全部购物车</button>
+                </div>
+              ) : (
+                <div className="text-center py-4"><p className="text-[11px] text-slate-400 font-bold">购物车是空的</p></div>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
-      <div className="w-full aspect-square bg-white relative">
-        <img src={product.image} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-16 h-16 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center pl-1 border border-white/50">
-            <span className="material-icons-outlined text-white text-4xl">play_arrow</span>
-          </div>
-        </div>
+      <div className="pt-[52px] w-full aspect-square bg-white dark:bg-slate-800 transition-colors overflow-hidden">
+        <img src={product.image} alt="" className="w-full h-full object-cover opacity-95 dark:opacity-85" />
       </div>
 
-      <div className="px-4 py-6 -mt-4 relative z-10 rounded-t-3xl bg-white shadow-soft space-y-4">
+      <div className="px-5 py-8 -mt-6 relative z-10 rounded-t-[32px] bg-white dark:bg-slate-900 shadow-soft space-y-8 transition-colors">
         <div className="flex items-baseline justify-between">
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-bold text-slate-900">¥{product.price}</span>
-            <span className="text-sm text-slate-400 line-through mb-1">¥{product.originalPrice}</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs font-bold text-red-500 italic">¥</span>
+            <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{product.price}</span>
+            <span className="text-sm text-slate-400 dark:text-slate-600 line-through">¥{product.originalPrice}</span>
           </div>
-          <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
-            <span className="material-icons-outlined text-sm">local_shipping</span>
-            <span>免运费</span>
+          <div className="bg-slate-50 dark:bg-slate-800/80 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-slate-100 dark:border-slate-700">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 tracking-wider">现货速发</span>
           </div>
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">{product.name} | 全套专业装备</h2>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight mb-3 tracking-tight">{product.name}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-4">{product.description}</p>
+        </div>
+        <div className="space-y-4">
+          <h3 className="text-sm font-black dark:text-white">选择规格</h3>
           <div className="flex flex-wrap gap-2">
-            <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600">工友专属</span>
-            <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">现货速发</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 mx-4 bg-white rounded-xl p-4 space-y-4 shadow-sm border border-slate-50">
-        <div className="flex justify-between items-center cursor-pointer group">
-          <div className="flex gap-4">
-            <span className="text-slate-400 font-medium">规格</span>
-            <span className="text-slate-800 font-medium">{product.specs?.[0]}</span>
-          </div>
-          <span className="material-icons-outlined text-slate-300 group-hover:text-blue-500">chevron_right</span>
-        </div>
-        <div className="h-px bg-slate-100 w-full"></div>
-        <div className="flex justify-between items-center cursor-pointer group">
-          <div className="flex gap-4">
-            <span className="text-slate-400 font-medium">送至</span>
-            <div className="flex flex-col">
-              <span className="text-slate-800 font-medium flex items-center gap-1">
-                <span className="material-icons-outlined text-sm text-blue-500">location_on</span>
-                广东省 广州市 天河区
-              </span>
-              <span className="text-xs text-slate-500 mt-0.5">预计 3 天内送达</span>
-            </div>
-          </div>
-          <span className="material-icons-outlined text-slate-300 group-hover:text-blue-500">chevron_right</span>
-        </div>
-      </div>
-
-      <div className="mt-6 bg-white pb-8">
-        <div className="flex items-center justify-center py-6 border-b border-slate-100 mb-4">
-          <div className="h-px w-8 bg-slate-300"></div>
-          <span className="mx-4 text-sm font-bold text-slate-500">商品详情</span>
-          <div className="h-px w-8 bg-slate-300"></div>
-        </div>
-        <div className="px-4 space-y-6">
-          <p className="text-slate-600 leading-relaxed">{product.description}</p>
-          <div className="space-y-3">
-            {product.detailImages?.map((img, i) => (
-              <img key={i} src={img} alt="" className="w-full rounded-lg" />
+            {product.specs?.map((spec) => (
+              <button key={spec} onClick={() => setSelectedSpec(spec)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selectedSpec === spec ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>{spec}</button>
             ))}
           </div>
         </div>
+        <div className="flex items-center justify-between pt-2">
+          <h3 className="text-sm font-black dark:text-white">购买数量</h3>
+          <div className="flex items-center gap-4 bg-slate-100/50 dark:bg-slate-800/50 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400 dark:text-slate-500 active:scale-90 border dark:border-slate-800"><span className="material-symbols-outlined text-lg">remove</span></button>
+            <span className="text-lg font-black dark:text-white min-w-[20px] text-center">{quantity}</span>
+            <button onClick={() => setQuantity(quantity + 1)} className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400 dark:text-slate-500 active:scale-90 border dark:border-slate-800"><span className="material-symbols-outlined text-lg">add</span></button>
+          </div>
+        </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 px-4 py-3 pb-8 z-50 flex items-center justify-between gap-4">
-        <div className="flex gap-6 px-2">
-          <button className="flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-blue-500">
-            <span className="material-icons-outlined text-2xl">headset_mic</span>
-            <span className="text-[10px]">客服</span>
-          </button>
-          <button className="flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-blue-500">
-            <span className="material-icons-outlined text-2xl">favorite_border</span>
-            <span className="text-[10px]">收藏</span>
-          </button>
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 py-4 pb-10 z-[100] flex items-center justify-between gap-6 transition-colors shadow-2xl">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-slate-400 dark:text-slate-600 font-black tracking-widest uppercase mb-0.5">合计金额</span>
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-sm font-bold text-red-500">¥</span>
+            <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{totalPrice}</span>
+          </div>
         </div>
-        <div className="flex-1 flex gap-2">
-          <button className="flex-1 py-2.5 rounded-full bg-blue-50 text-blue-500 font-bold text-sm shadow-sm">加入购物车</button>
-          <button className="flex-1 py-2.5 rounded-full bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-100">立即购买</button>
+        <div className="flex flex-1 gap-2">
+          <button onClick={handleAddToCart} className={`flex-1 py-4 rounded-2xl font-black text-xs transition-all ${isAdding ? 'bg-green-500 text-white animate-success-pop' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'}`}>{isAdding ? '已加入' : '加入购物车'}</button>
+          <button onClick={() => { handleAddToCart(); navigate('/cart'); }} className="flex-[1.5] py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all">立即抢购</button>
         </div>
       </div>
     </div>

@@ -20,7 +20,7 @@ const Publish: React.FC = () => {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
   const availableLocations = ['广州市 天河区', '深圳市 龙华区', '东莞市 长安镇', '佛山市 顺德区', '上海市 浦东新区'];
-  const availableCategories = ['工作互助', '薪资讨论', '法律咨询', '生活闲聊', '工具推荐', '安全教育'];
+  const availableCategories = ['工作互助', '七彩生活', '法律咨询', '生活闲聊', '工具推荐', '安全教育']; // 已更名：薪资讨论 -> 七彩生活
 
   // Handle Edit Mode Initial Data
   useEffect(() => {
@@ -126,20 +126,20 @@ const Publish: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-white dark:bg-slate-950 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between border-b border-slate-50 shrink-0">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800 shrink-0">
         <button onClick={() => navigate(-1)} className="p-1 text-slate-400">
           <span className="material-symbols-outlined text-[28px]">close</span>
         </button>
-        <h2 className="text-base font-bold text-slate-900">{id ? '编辑动态' : '发布动态'}</h2>
+        <h2 className="text-base font-bold text-slate-900 dark:text-white">{id ? '编辑动态' : '发布动态'}</h2>
         <button 
           onClick={handlePublish}
           disabled={!title.trim() || selectedCategories.length === 0}
           className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
             title.trim() && selectedCategories.length > 0
-              ? 'bg-slate-900 text-white shadow-md' 
-              : 'bg-slate-100 text-slate-400 pointer-events-none'
+              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' 
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 pointer-events-none'
           }`}
         >
           {id ? '保存' : '发布'}
@@ -150,12 +150,12 @@ const Publish: React.FC = () => {
         <input 
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full text-2xl font-black text-slate-900 placeholder-slate-200 border-none focus:ring-0 p-0 bg-transparent" 
+          className="w-full text-2xl font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 border-none focus:ring-0 p-0 bg-transparent" 
           placeholder="给你的分享起个标题..." 
           type="text" 
         />
 
-        <div className="h-px bg-slate-100"></div>
+        <div className="h-px bg-slate-100 dark:bg-slate-800"></div>
 
         <div className="space-y-4">
           {blocks.map((block) => (
@@ -164,12 +164,12 @@ const Publish: React.FC = () => {
                 <textarea 
                   value={block.value}
                   onChange={(e) => updateTextBlock(block.id, e.target.value)}
-                  className="w-full text-base text-slate-600 placeholder-slate-300 border-none focus:ring-0 p-0 bg-transparent resize-none leading-relaxed min-h-[40px]" 
+                  className="w-full text-base text-slate-600 dark:text-slate-400 placeholder-slate-300 dark:placeholder-slate-700 border-none focus:ring-0 p-0 bg-transparent resize-none leading-relaxed min-h-[40px]" 
                   placeholder="写点什么..."
                   rows={Math.max(1, block.value.split('\n').length)}
                 />
               ) : block.type === 'image' ? (
-                <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 group">
+                <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 group">
                   <img src={block.value} alt="" className="w-full object-cover max-h-96" />
                   <button 
                     onClick={() => removeBlock(block.id)}
@@ -179,7 +179,7 @@ const Publish: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 group bg-black aspect-video flex items-center justify-center">
+                <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 group bg-black aspect-video flex items-center justify-center">
                   <video src={block.value} controls className="max-h-96 w-full" />
                   <button 
                     onClick={() => removeBlock(block.id)}
@@ -196,21 +196,21 @@ const Publish: React.FC = () => {
         <div className="flex items-center gap-3 pt-4">
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full text-slate-600 text-sm font-medium hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 rounded-full text-slate-600 dark:text-slate-400 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_photo_alternate</span>
             图片/视频
           </button>
           <button 
             onClick={() => setBlocks(prev => [...prev, { id: `t-${Date.now()}`, type: 'text', value: '' }])}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full text-slate-600 text-sm font-medium hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 rounded-full text-slate-600 dark:text-slate-400 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">text_fields</span>
             文字
           </button>
         </div>
 
-        <div className="h-px bg-slate-50"></div>
+        <div className="h-px bg-slate-50 dark:bg-slate-800"></div>
 
         <div className="space-y-4">
           <button 
@@ -219,9 +219,9 @@ const Publish: React.FC = () => {
           >
             <div className="flex items-center gap-2">
               <span className={`material-symbols-outlined ${location ? 'text-blue-500' : 'text-slate-400'}`}>location_on</span>
-              <span className="text-sm text-slate-600">{location || '你在哪里？'}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{location || '你在哪里？'}</span>
             </div>
-            <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            <span className="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
           </button>
           
           <button 
@@ -231,13 +231,13 @@ const Publish: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className={`material-symbols-outlined ${selectedCategories.length > 0 ? 'text-orange-500' : 'text-slate-400'}`}>category</span>
               <div className="flex flex-col items-start">
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-slate-600 dark:text-slate-400">
                   {selectedCategories.length > 0 ? selectedCategories.join(' / ') : '选择帖子类型'}
                 </span>
                 <span className="text-[10px] text-slate-400">最多可选 2 个</span>
               </div>
             </div>
-            <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            <span className="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
           </button>
         </div>
       </div>
@@ -252,15 +252,15 @@ const Publish: React.FC = () => {
       />
 
       {showLocationPicker && (
-        <div className="fixed inset-0 z-[110] bg-black/40 animate-in fade-in flex items-end">
-          <div className="w-full max-w-md mx-auto bg-white rounded-t-3xl p-6 animate-in slide-in-from-bottom">
+        <div className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm animate-in fade-in flex items-end">
+          <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl p-6 animate-in slide-in-from-bottom">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold">地点</h3>
-              <button onClick={() => setShowLocationPicker(false)}><span className="material-symbols-outlined">close</span></button>
+              <h3 className="font-bold dark:text-white">地点</h3>
+              <button onClick={() => setShowLocationPicker(false)}><span className="material-symbols-outlined dark:text-white">close</span></button>
             </div>
             <div className="space-y-2">
               {availableLocations.map(loc => (
-                <button key={loc} onClick={() => { setLocation(loc); setShowLocationPicker(false); }} className="w-full text-left p-3 hover:bg-slate-50 rounded-xl text-slate-700">{loc}</button>
+                <button key={loc} onClick={() => { setLocation(loc); setShowLocationPicker(false); }} className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-slate-700 dark:text-slate-300 transition-colors">{loc}</button>
               ))}
             </div>
           </div>
@@ -268,14 +268,14 @@ const Publish: React.FC = () => {
       )}
 
       {showCategoryPicker && (
-        <div className="fixed inset-0 z-[110] bg-black/40 animate-in fade-in flex items-end">
-          <div className="w-full max-w-md mx-auto bg-white rounded-t-3xl p-6 animate-in slide-in-from-bottom">
+        <div className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm animate-in fade-in flex items-end">
+          <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl p-6 animate-in slide-in-from-bottom">
             <div className="flex justify-between items-center mb-4">
               <div className="flex flex-col">
-                <h3 className="font-bold">选择帖子类型</h3>
+                <h3 className="font-bold dark:text-white">选择帖子类型</h3>
                 <p className="text-[10px] text-slate-400">请选择 1-2 个分类</p>
               </div>
-              <button onClick={() => setShowCategoryPicker(false)} className="text-slate-900 font-bold px-4 py-2 bg-slate-100 rounded-full text-sm">确定</button>
+              <button onClick={() => setShowCategoryPicker(false)} className="text-slate-900 dark:text-white font-bold px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm">确定</button>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               {availableCategories.map(cat => (
@@ -285,8 +285,8 @@ const Publish: React.FC = () => {
                   disabled={!selectedCategories.includes(cat) && selectedCategories.length >= 2}
                   className={`px-4 py-3 rounded-xl text-xs font-bold transition-all border ${
                     selectedCategories.includes(cat) 
-                      ? 'bg-slate-900 text-white border-slate-900' 
-                      : 'bg-white text-slate-500 border-slate-100'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white' 
+                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800'
                   } ${!selectedCategories.includes(cat) && selectedCategories.length >= 2 ? 'opacity-30 cursor-not-allowed' : ''}`}
                 >
                   {cat}

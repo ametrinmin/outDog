@@ -1,65 +1,87 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CURRENT_USER } from '../constants';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(CURRENT_USER);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('outdog_user_info');
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/profile', { replace: true });
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('确定要退出当前账号吗？')) {
+      localStorage.removeItem('outdog_user_info');
+      localStorage.removeItem('outdog_user_phone');
+      alert('已安全退出登录');
+      navigate('/');
+      window.location.reload();
+    }
+  };
 
   const menuItems = [
-    { label: '账号与安全', extra: null },
-    { label: '通知设置', extra: null },
-    { label: '隐私设置', extra: null },
-    { label: '清除缓存', extra: '128 MB' },
-    { label: '关于 OUTDOG', extra: 'v1.2.0' },
+    { label: '账号与安全', path: '/settings/account', extra: null },
+    { label: '通知设置', path: '/settings/notifications', extra: null },
+    { label: '关于 OUTDOG', path: null, extra: 'v1.2.0' },
   ];
 
   return (
-    <div className="bg-background-light min-h-screen animate-in slide-in-from-right duration-300 flex flex-col">
-      <header className="px-5 py-3 bg-white sticky top-0 z-40 backdrop-blur-md flex items-center border-b border-slate-100">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full text-slate-600 hover:bg-slate-100 transition">
+    <div className="bg-background-light dark:bg-slate-950 min-h-screen animate-in slide-in-from-right duration-300 transition-colors">
+      <header className="px-5 py-3 bg-white dark:bg-slate-900 sticky top-0 z-[60] backdrop-blur-md flex items-center border-b border-slate-100 dark:border-slate-800 transition-colors">
+        <button onClick={handleBack} className="p-2 -ml-2 rounded-full text-slate-600 dark:text-white active:scale-90 active:bg-slate-100 dark:active:bg-slate-800 transition-all">
           <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
         </button>
-        <h1 className="flex-1 text-center mr-6 text-lg font-bold text-slate-900 tracking-tight">设置中心</h1>
+        <h1 className="flex-1 text-center mr-6 text-lg font-bold text-slate-900 dark:text-white tracking-tight">设置中心</h1>
       </header>
 
-      <main className="flex-1 px-5 pt-6 space-y-8">
-        <section className="bg-white rounded-2xl p-4 shadow-card border border-slate-100 flex items-center gap-4 active:bg-slate-50 transition cursor-pointer group">
-          <div className="relative flex-shrink-0">
-            <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden ring-2 ring-slate-100">
-              <img src={CURRENT_USER.avatar} alt="Avatar" className="w-full h-full object-cover" />
-            </div>
-            <div className="absolute bottom-0 right-0 bg-slate-900 text-white rounded-full p-1 border-2 border-white w-6 h-6 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[12px]">edit</span>
-            </div>
+      <main className="px-5 pt-6 space-y-8">
+        <section 
+          onClick={() => navigate('/settings/edit-profile')}
+          className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-card border border-slate-100 dark:border-slate-800 flex items-center gap-4 active:bg-slate-50 dark:active:bg-slate-800 transition cursor-pointer"
+        >
+          <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden ring-2 ring-slate-100 dark:ring-slate-950">
+            <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{CURRENT_USER.name}</h2>
-            <p className="text-sm text-slate-500 truncate mt-0.5">{CURRENT_USER.bio}</p>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">{user.name}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 truncate">编辑个人资料</p>
           </div>
-          <span className="material-symbols-outlined text-slate-300 group-hover:text-slate-500">chevron_right</span>
+          <span className="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
         </section>
 
-        <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden divide-y divide-slate-50">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-card border border-slate-100 dark:border-slate-800 overflow-hidden divide-y dark:divide-slate-800">
           {menuItems.map((item, i) => (
-            <button key={i} className="w-full flex items-center justify-between p-4 pl-5 hover:bg-slate-50 transition group">
-              <span className="text-[15px] font-bold text-slate-800 group-hover:text-slate-900">{item.label}</span>
+            <button 
+              key={i} 
+              onClick={() => item.path && navigate(item.path)}
+              className="w-full flex items-center justify-between p-4 pl-5 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+            >
+              <span className="text-[15px] font-bold text-slate-800 dark:text-slate-200">{item.label}</span>
               <div className="flex items-center gap-2">
-                {item.extra && <span className="text-xs font-medium text-slate-400">{item.extra}</span>}
-                <span className="material-symbols-outlined text-slate-300 group-hover:text-slate-500" style={{ fontSize: '20px' }}>chevron_right</span>
+                {item.extra && <span className="text-xs font-medium text-slate-400 dark:text-slate-500">{item.extra}</span>}
+                {item.path && <span className="material-symbols-outlined text-slate-300 dark:text-slate-700" style={{ fontSize: '20px' }}>chevron_right</span>}
               </div>
             </button>
           ))}
         </div>
 
-        <div className="pt-4">
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full py-4 rounded-xl bg-slate-900 text-white font-bold text-[16px] shadow-lg shadow-slate-200 hover:opacity-90 active:scale-[0.98] transition-all"
-          >
-            退出登录
-          </button>
-        </div>
+        <button 
+          onClick={handleLogout}
+          className="w-full py-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[16px] shadow-lg active:scale-95 transition-all"
+        >
+          退出登录
+        </button>
       </main>
     </div>
   );

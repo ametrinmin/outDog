@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_POSTS, CURRENT_USER } from '../constants';
@@ -11,354 +10,266 @@ const PostDetail: React.FC = () => {
   
   const [likesCount, setLikesCount] = useState(post?.likes || 0);
   const [isLiked, setIsLiked] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLikeAnimating, setIsLikeAnimating] = useState(false);
   
-  // 初始化点赞和历史记录
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [replyTarget, setReplyTarget] = useState<{comment: Comment, parentId?: string} | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedAttachments, setSelectedAttachments] = useState<ContentBlock[]>([]);
+  
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAuthor = post?.author.name === CURRENT_USER.name;
+  const commonEmojis = ['👍', '🙌', '🤝', '🔥', '👏', '😂', '💯', '🏠', '🛠️', '💼', '❤️', '✅', '🎉', '💪', '🙏', '✨', '🤣', '😅', '🤔', '👀', '🌟', '🚀', '🌈', '🍺'];
+
   useEffect(() => {
     if (!id) return;
     const likedPosts = JSON.parse(localStorage.getItem('outdog_liked_posts') || '[]');
     if (likedPosts.includes(id)) setIsLiked(true);
     if (post) setLikesCount(post.likes);
 
-    const history = JSON.parse(localStorage.getItem('outdog_history') || '[]');
-    const newHistory = [id, ...history.filter((pid: string) => pid !== id)].slice(0, 50);
-    localStorage.setItem('outdog_history', JSON.stringify(newHistory));
+    const mockComments: Comment[] = [
+      {
+        id: 'c1',
+        author: { name: '水电小李', avatar: 'https://picsum.photos/seed/user1/100' },
+        content: '老哥说得对，这地方确实机会多，但坑也多。',
+        timestamp: '15分钟前',
+        likes: 12,
+        isLiked: false,
+        attachments: [
+          { id: 'att-1', type: 'image', value: 'https://picsum.photos/seed/factory1/400/300' }
+        ],
+        replies: [
+          {
+            id: 'r1',
+            author: { name: '搬砖小王', avatar: 'https://picsum.photos/seed/user3/100' },
+            content: '深有体会，上次去那个厂差点被中介坑了。',
+            timestamp: '10分钟前',
+            likes: 2,
+            isLiked: false,
+            replyToName: '水电小李'
+          }
+        ]
+      }
+    ];
+    setComments(mockComments);
   }, [id, post]);
 
-  const [comments, setComments] = useState<Comment[]>([
-    {
-      id: 'c1',
-      author: { name: '强哥装修', avatar: 'https://picsum.photos/seed/worker1/100' },
-      content: '这环境真不错，龙华确实是打工人的天堂，也是噩梦，看个人怎么闯了。',
-      timestamp: '1小时前',
-      likes: 12,
-      isLiked: false,
-      isAuthor: false,
-      replies: [
-        {
-          id: 'c1-r1',
-          author: { name: '老王闯深圳', avatar: CURRENT_USER.avatar },
-          content: '确实，机会多但竞争也大，稳扎稳打最重要。',
-          timestamp: '45分钟前',
-          likes: 3,
-          isAuthor: true,
-          isLiked: false
-        }
-      ]
-    }
-  ]);
-  
-  const [replyTarget, setReplyTarget] = useState<{ id: string, name: string, parentId?: string } | null>(null);
-  const [commentInput, setCommentInput] = useState('');
-  const [commentAttachments, setCommentAttachments] = useState<ContentBlock[]>([]);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  
-  const inputRef = useRef<HTMLInputElement>(null);
-  const commentFileInputRef = useRef<HTMLInputElement>(null);
-
-  const commonEmojis = [
-    '👍', '🙌', '🤝', '🔥', '👏', '😂', '💯', '🏠', 
-    '🛠️', '💼', '❤️', '✅', '🎉', '💪', '🙏', '✨',
-    '🤣', '😅', '🤔', '👀', '🌟', '🚀', '🌈', '🍺'
-  ];
-
-  if (!post) return <div className="p-10 text-center text-slate-400">帖子不存在</div>;
-
-  const handleLikeToggle = () => {
-    const likedPosts = JSON.parse(localStorage.getItem('outdog_liked_posts') || '[]');
-    let newLikedPosts = [...likedPosts];
-    if (isLiked) {
-      const newCount = Math.max(0, likesCount - 1);
-      setLikesCount(newCount);
-      newLikedPosts = newLikedPosts.filter(pid => pid !== id);
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
     } else {
-      setLikesCount(likesCount + 1);
-      if (id) newLikedPosts.push(id);
+      navigate('/', { replace: true });
     }
-    localStorage.setItem('outdog_liked_posts', JSON.stringify(newLikedPosts));
-    setIsLiked(!isLiked);
   };
 
-  const handleCommentMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newMedia = Array.from(files).map((file: File) => ({
-        id: `ca-${Date.now()}-${Math.random()}`,
-        type: (file.type.startsWith('video/') ? 'video' : 'image') as any,
+      // Fix: Explicitly type the file parameter as File to resolve the 'unknown' error with URL.createObjectURL
+      const newAttachments: ContentBlock[] = Array.from(files).map((file: File) => ({
+        id: `att-${Date.now()}-${Math.random()}`,
+        type: 'image',
         value: URL.createObjectURL(file)
       }));
-      setCommentAttachments(prev => [...prev, ...newMedia]);
-      setShowEmojiPicker(false);
+      setSelectedAttachments(prev => [...prev, ...newAttachments]);
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeAttachment = (id: string) => {
-    setCommentAttachments(prev => prev.filter(a => a.id !== id));
+    setSelectedAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const submitComment = () => {
-    if (!commentInput.trim() && commentAttachments.length === 0) return;
+  const handleSend = () => {
+    if (!inputText.trim() && selectedAttachments.length === 0) return;
 
     const newComment: Comment = {
-      id: `nc-${Date.now()}`,
+      id: `new-${Date.now()}`,
       author: { name: CURRENT_USER.name, avatar: CURRENT_USER.avatar },
-      content: commentInput,
-      attachments: commentAttachments.length > 0 ? [...commentAttachments] : undefined,
+      content: inputText,
       timestamp: '刚刚',
       likes: 0,
       isLiked: false,
-      isAuthor: CURRENT_USER.name === post.author.name
+      replies: [],
+      attachments: selectedAttachments.length > 0 ? [...selectedAttachments] : undefined,
+      replyToName: replyTarget ? replyTarget.comment.author.name : undefined
     };
 
     if (replyTarget) {
-      const targetParentId = replyTarget.parentId || replyTarget.id;
+      const parentId = replyTarget.parentId || replyTarget.comment.id;
       setComments(prev => prev.map(c => {
-        if (c.id === targetParentId) {
-          return {
-            ...c,
-            replies: [...(c.replies || []), { ...newComment, replyToName: replyTarget.name }]
-          };
+        if (c.id === parentId) {
+          return { ...c, replies: [...(c.replies || []), newComment] };
         }
         return c;
       }));
     } else {
-      setComments([newComment, ...comments]);
+      setComments(prev => [newComment, ...prev]);
     }
 
-    // 重置状态
-    setCommentInput('');
-    setCommentAttachments([]);
+    setInputText('');
+    setSelectedAttachments([]);
     setReplyTarget(null);
     setShowEmojiPicker(false);
   };
 
-  const startReply = (commentId: string, authorName: string, parentId?: string) => {
-    setReplyTarget({ id: commentId, name: authorName, parentId });
-    setShowEmojiPicker(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
-  const renderAttachments = (attachments?: ContentBlock[]) => {
+  const renderCommentMedia = (attachments?: ContentBlock[]) => {
     if (!attachments || attachments.length === 0) return null;
     return (
       <div className="flex flex-wrap gap-2 mt-2">
         {attachments.map(att => (
-          <div key={att.id} className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 border border-slate-50 shrink-0">
-            {att.type === 'image' ? (
-              <img src={att.value} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <video src={att.value} className="w-full h-full object-cover" />
-            )}
+          <div key={att.id} className="w-24 h-24 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+            <img src={att.value} className="w-full h-full object-cover" alt="" onClick={() => window.open(att.value)} />
           </div>
         ))}
       </div>
     );
   };
 
+  const renderReply = (reply: Comment, parentId: string) => (
+    <div key={reply.id} className="relative pl-8 pt-4 group/reply">
+      <div className="absolute left-0 top-0 w-px h-full bg-slate-100 dark:bg-slate-800 ml-4 group-last/reply:h-8"></div>
+      <div className="absolute left-4 top-8 w-4 h-px bg-slate-100 dark:bg-slate-800"></div>
+      
+      <div className="flex gap-3">
+        <img src={reply.author.avatar} className="w-8 h-8 rounded-full ring-1 ring-slate-100 dark:ring-slate-800 shrink-0 z-10 bg-white dark:bg-slate-950" alt="" />
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-center mb-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{reply.author.name}</span>
+              {reply.replyToName && (
+                <>
+                  <span className="material-symbols-outlined text-[10px] text-slate-300 dark:text-slate-700">play_arrow</span>
+                  <span className="text-[10px] font-bold text-blue-500/80 dark:text-blue-400/80">@{reply.replyToName}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{reply.content}</p>
+          {renderCommentMedia(reply.attachments)}
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-[10px] text-slate-300 dark:text-slate-700">{reply.timestamp}</span>
+            <button onClick={() => { setReplyTarget({ comment: reply, parentId }); commentInputRef.current?.focus(); }} className="text-[10px] text-blue-500 font-bold active:opacity-60">回复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="bg-white min-h-screen animate-in slide-in-from-right duration-300">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-slate-50 transition">
-          <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
-        </button>
-        <h1 className="text-base font-bold text-slate-900">详情</h1>
-        <button className="p-2 -mr-2 rounded-full hover:bg-slate-50 transition">
-          <span className="material-symbols-outlined text-2xl">more_horiz</span>
-        </button>
+    <div className="bg-white dark:bg-slate-950 min-h-screen animate-in slide-in-from-right duration-300 transition-colors pb-40">
+      <header className="sticky top-0 z-[60] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-between transition-colors">
+        <button onClick={handleBack} className="p-2 -ml-2 text-slate-900 dark:text-white active:scale-90 active:bg-slate-100 dark:active:bg-slate-800 rounded-full transition-all"><span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span></button>
+        <h1 className="text-base font-bold dark:text-white">帖子正文</h1>
+        <button onClick={() => setShowActionSheet(true)} className="p-2 -mr-2 text-slate-900 dark:text-white transition-opacity active:opacity-50"><span className="material-symbols-outlined text-2xl">more_horiz</span></button>
       </header>
 
       <article className="px-5 py-6">
-        <h1 className="text-2xl font-black text-slate-900 leading-tight mb-5">{post.title}</h1>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-5 tracking-tight">{post?.title}</h1>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-slate-200 overflow-hidden border border-white shadow-sm">
-              <img src={post.author.avatar || 'https://picsum.photos/seed/user/100'} alt="" className="w-full h-full object-cover" />
-            </div>
+            <img src={post?.author.avatar} className="h-10 w-10 rounded-full ring-1 ring-slate-100 dark:ring-slate-800 shadow-sm" alt="" />
             <div>
-              <div className="text-sm font-bold text-slate-900">{post.author.name}</div>
-              <div className="text-[10px] text-slate-400 font-medium">{post.timestamp} · 广东</div>
+              <div className="text-sm font-bold dark:text-white">{post?.author.name}</div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500">{post?.timestamp} · 广东</div>
             </div>
           </div>
-          <button className="px-4 py-1 rounded-full bg-slate-900 text-white text-[10px] font-bold">关注</button>
+          <button onClick={() => setIsFollowing(!isFollowing)} className={`px-4 py-1.5 rounded-full text-[10px] font-bold ${isFollowing ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 active:scale-95 transition-all'}`}>{isFollowing ? '已关注' : '关注'}</button>
         </div>
-
         <div className="space-y-4">
-          {post.blocks ? post.blocks.map(block => (
-            <div key={block.id}>
-              {block.type === 'text' ? <p className="text-[15px] leading-relaxed text-slate-700">{block.value}</p> : 
-               block.type === 'image' ? <img src={block.value} className="w-full rounded-xl" alt="" /> : 
-               <video src={block.value} controls className="w-full rounded-xl" />}
-            </div>
-          )) : (
-            <>
-              <p className="text-[15px] text-slate-700">{post.content}</p>
-              {post.images.map((img, i) => <img key={i} src={img} className="w-full rounded-xl mt-3" alt="" />)}
-            </>
-          )}
+          <p className="text-[16px] leading-relaxed text-slate-700 dark:text-slate-300">{post?.content}</p>
+          {post?.images.map((img, i) => <img key={i} src={img} className="w-full rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm" alt="" />)}
         </div>
       </article>
 
-      <div className="h-2 bg-slate-50/50"></div>
-
-      <section className="px-5 py-6 bg-white pb-40">
-        <h2 className="text-base font-black text-slate-900 mb-6 flex items-center gap-2">
-          全部评论 <span className="text-xs font-medium text-slate-400">{comments.length}</span>
-        </h2>
-        
-        <div className="space-y-6">
+      <section className="px-5 py-6 bg-slate-50/30 dark:bg-slate-900/10">
+        <h3 className="text-sm font-black text-slate-900 dark:text-white mb-6 uppercase tracking-wider">全部评论 <span className="text-slate-400 dark:text-slate-600 font-black ml-1 text-xs">{comments.length}</span></h3>
+        <div className="space-y-10">
           {comments.map((comment) => (
-            <div key={comment.id} className="group">
-              <div className="flex gap-3">
-                <div className="h-9 w-9 rounded-full bg-slate-100 overflow-hidden shrink-0">
-                  <img src={comment.author.avatar} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1">
+            <div key={comment.id}>
+              <div className="flex gap-4">
+                <img src={comment.author.avatar} className="w-10 h-10 rounded-full ring-1 ring-slate-100 dark:ring-slate-800 shrink-0 z-10 bg-white dark:bg-slate-950 shadow-sm" alt="" />
+                <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-slate-900">
-                      {comment.author.name} 
-                      {comment.isAuthor && <span className="ml-1 text-[8px] bg-slate-900 text-white px-1 py-0.5 rounded">作者</span>}
-                    </span>
-                    <span className="text-[9px] text-slate-300">{comment.timestamp}</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{comment.author.name}</span>
                   </div>
-                  <p className="text-[13px] text-slate-600 leading-relaxed" onClick={() => startReply(comment.id, comment.author.name!)}>
-                    {comment.content}
-                  </p>
-                  {renderAttachments(comment.attachments)}
-                  
-                  <div className="flex items-center gap-4 mt-2.5">
-                    <button className="text-[10px] text-slate-400 font-bold" onClick={() => startReply(comment.id, comment.author.name!)}>回复</button>
-                    <div className="flex items-center gap-1 text-slate-400">
-                      <span className="material-symbols-outlined text-[14px]">favorite</span>
-                      <span className="text-[10px] font-bold">{comment.likes}</span>
-                    </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{comment.content}</p>
+                  {renderCommentMedia(comment.attachments)}
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-[10px] text-slate-300 dark:text-slate-700">{comment.timestamp}</span>
+                    <button onClick={() => { setReplyTarget({ comment }); commentInputRef.current?.focus(); }} className="text-[10px] text-blue-500 font-black active:opacity-60 transition-opacity">回复</button>
                   </div>
-
-                  {comment.replies && comment.replies.map(reply => (
-                    <div key={reply.id} className="mt-4 flex gap-2.5 pl-3 border-l-2 border-slate-50">
-                      <div className="h-6 w-6 rounded-full bg-slate-100 overflow-hidden shrink-0">
-                        <img src={reply.author.avatar} className="w-full h-full object-cover" alt="" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <span className="text-[11px] font-bold text-slate-900">{reply.author.name}</span>
-                          <span className="text-blue-400 text-[10px] font-medium">@ {reply.replyToName}</span>
-                        </div>
-                        <p className="text-[12px] text-slate-600 leading-relaxed" onClick={() => startReply(reply.id, reply.author.name!, comment.id)}>
-                          {reply.content}
-                        </p>
-                        {renderAttachments(reply.attachments)}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
+              {comment.replies?.map(reply => renderReply(reply, comment.id))}
             </div>
           ))}
         </div>
       </section>
 
-      {/* 底部交互区 */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-xl border-t border-slate-100 z-[100] safe-bottom">
-        
-        {/* 表情包选择器 */}
-        {showEmojiPicker && (
-          <div className="grid grid-cols-8 gap-2 p-4 animate-in slide-in-from-bottom duration-300 border-b border-slate-50 max-h-48 overflow-y-auto no-scrollbar">
-            {commonEmojis.map(emoji => (
-              <button 
-                key={emoji} 
-                onClick={() => setCommentInput(prev => prev + emoji)}
-                className="text-2xl p-2 hover:bg-slate-50 rounded-lg active:scale-125 transition"
-              >
-                {emoji}
-              </button>
-            ))}
+      <footer className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 z-[100] safe-bottom transition-colors shadow-2xl">
+        {replyTarget && (
+          <div className="px-5 py-2.5 bg-blue-50/90 dark:bg-blue-900/20 flex items-center justify-between border-b border-blue-100/30 dark:border-blue-900/30">
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate">正在回复 @{replyTarget.comment.author.name}</span>
+            <button onClick={() => setReplyTarget(null)} className="text-blue-400 p-1"><span className="material-symbols-outlined text-sm">close</span></button>
           </div>
         )}
 
-        {/* 附件预览 */}
-        {commentAttachments.length > 0 && (
-          <div className="flex gap-2 p-3 overflow-x-auto no-scrollbar bg-slate-50/50">
-            {commentAttachments.map(att => (
-              <div key={att.id} className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                {att.type === 'image' ? <img src={att.value} className="w-full h-full object-cover" alt="" /> : <video src={att.value} className="w-full h-full object-cover" />}
-                <button 
-                  onClick={() => removeAttachment(att.id)}
-                  className="absolute -top-1 -right-1 bg-slate-900 text-white rounded-full p-0.5 shadow-sm"
-                >
-                  <span className="material-symbols-outlined text-[10px]">close</span>
-                </button>
+        {selectedAttachments.length > 0 && (
+          <div className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-50 dark:border-slate-800">
+            {selectedAttachments.map(att => (
+              <div key={att.id} className="relative shrink-0">
+                <img src={att.value} className="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-slate-700" alt="" />
+                <button onClick={() => removeAttachment(att.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg"><span className="material-symbols-outlined text-[12px]">close</span></button>
               </div>
             ))}
           </div>
         )}
 
-        {/* 输入行 */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex-1 flex items-center gap-2 bg-slate-100/70 rounded-2xl px-3 py-2 border border-slate-50">
-            <button 
-              onClick={() => { setShowEmojiPicker(!showEmojiPicker); }}
-              className={`material-symbols-outlined text-xl transition ${showEmojiPicker ? 'text-blue-500 scale-110' : 'text-slate-400'}`}
-            >
-              mood
-            </button>
-            <input 
-              ref={inputRef}
-              type="text" 
-              value={commentInput}
-              onChange={(e) => setCommentInput(e.target.value)}
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-0 placeholder-slate-400 text-slate-800"
-              placeholder={replyTarget ? `回复 @${replyTarget.name}...` : "说点什么吧..."}
-            />
-            {replyTarget && (
-              <button onClick={() => setReplyTarget(null)} className="text-slate-300">
-                <span className="material-symbols-outlined text-sm">cancel</span>
-              </button>
-            )}
+        {showEmojiPicker && (
+          <div className="px-4 py-4 grid grid-cols-8 gap-2 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800 max-h-48 overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-300">
+            {commonEmojis.map(emoji => (
+              <button key={emoji} onClick={() => setInputText(prev => prev + emoji)} className="text-2xl p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl active:scale-125 transition-transform">{emoji}</button>
+            ))}
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => commentFileInputRef.current?.click()}
-              className="relative text-slate-400 hover:text-slate-900 transition p-1"
-            >
-              <span className="material-symbols-outlined text-2xl">add_photo_alternate</span>
-              {commentAttachments.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                  {commentAttachments.length}
-                </span>
-              )}
-            </button>
-            
-            <button 
-              onClick={submitComment}
-              disabled={!commentInput.trim() && commentAttachments.length === 0}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                commentInput.trim() || commentAttachments.length > 0 
-                  ? 'bg-slate-900 text-white scale-105 shadow-md' 
-                  : 'bg-slate-100 text-slate-300'
-              }`}
-            >
-              <span className="material-symbols-outlined text-lg">send</span>
-            </button>
+        <div className="px-4 py-3 flex items-center gap-3 pb-8">
+          <button onClick={() => fileInputRef.current?.click()} className="text-slate-400"><span className="material-symbols-outlined text-2xl">add_photo_alternate</span></button>
+          <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`transition ${showEmojiPicker ? 'text-blue-500' : 'text-slate-400'}`}><span className="material-symbols-outlined text-2xl">mood</span></button>
+          <div className="flex-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl px-4 py-2.5 flex items-center shadow-inner">
+            <input 
+              ref={commentInputRef}
+              type="text" 
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder={replyTarget ? `回复 @${replyTarget.comment.author.name}...` : "发表你的看法..."} 
+              className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600"
+            />
+          </div>
+          <button onClick={handleSend} disabled={!inputText.trim() && selectedAttachments.length === 0} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${inputText.trim() || selectedAttachments.length > 0 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl' : 'bg-slate-100 dark:bg-slate-800 text-slate-300 pointer-events-none'}`}>
+            <span className="material-symbols-outlined text-xl">send</span>
+          </button>
+        </div>
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleMediaSelect} />
+      </footer>
+
+      {showActionSheet && (
+        <div className="fixed inset-0 z-[200] flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowActionSheet(false)}></div>
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] p-6 pb-12 animate-in slide-in-from-bottom duration-300">
+            <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto mb-6"></div>
+            <button onClick={() => setShowActionSheet(false)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold rounded-2xl">取消</button>
           </div>
         </div>
-        
-        {/* 底层垫高 (适配部分手机安全区) */}
-        <div className="h-6"></div>
-      </div>
-
-      <input 
-        type="file" 
-        ref={commentFileInputRef} 
-        hidden 
-        multiple 
-        accept="image/*,video/*" 
-        onChange={handleCommentMediaUpload} 
-      />
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .FILL-1 { font-variation-settings: 'FILL' 1; }
-      `}</style>
+      )}
     </div>
   );
 };

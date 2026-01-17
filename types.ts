@@ -9,22 +9,64 @@ export interface User {
   likes: number;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  badge?: string;
+  specs?: string[];
+  features?: string[];
+  detailImages?: string[];
+}
+
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  productImage: string;
+  price: number;
+  quantity: number;
+  spec?: string;
+}
+
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+
+export interface OrderReview {
+  rating: number;
+  content: string;
+  tags: string[];
+  timestamp: string;
+}
+
+export interface Order {
+  id: string;
+  items: OrderItem[];
+  totalAmount: number;
+  status: OrderStatus;
+  timestamp: string;
+  trackingNumber?: string;
+  review?: OrderReview;
+  refundReason?: string;
+}
+
 export type BlockType = 'text' | 'image' | 'video';
 
 export interface ContentBlock {
   id: string;
   type: BlockType;
-  value: string; // text content or media URL/blob
+  value: string;
 }
 
 export interface Post {
   id: string;
   author: Partial<User>;
   title: string;
-  content: string; // fallback or summary
-  blocks?: ContentBlock[]; // interspersed content
-  images: string[]; // keep for compatibility
-  categories: string[]; // Replaces singular category and tags
+  content: string;
+  blocks?: ContentBlock[];
+  images: string[];
+  categories: string[];
   timestamp: string;
   likes: number;
   comments: number;
@@ -36,7 +78,8 @@ export interface Notification {
   type: 'like' | 'comment' | 'system' | 'mention';
   sender: Partial<User>;
   content: string;
-  relatedId?: string; // post id
+  relatedId?: string;
+  commentId?: string;
   timestamp: string;
   isRead: boolean;
 }
@@ -54,26 +97,13 @@ export interface Comment {
   attachments?: ContentBlock[];
 }
 
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  originalPrice: number;
-  image: string;
-  badge?: string;
-  specs?: string[];
-  features?: string[];
-  detailImages?: string[];
-}
-
 export interface Message {
   id: string;
   senderId: string;
   text: string;
   timestamp: string;
   isMe: boolean;
-  attachments?: ContentBlock[]; // 新增：支持聊天附件
+  attachments?: ContentBlock[];
 }
 
 export interface ChatSession {

@@ -1,5 +1,5 @@
 
-import { Post, Product, User, ChatSession, Message, Notification } from './types';
+import { Post, Product, User, ChatSession, Message, Notification, Order } from './types';
 
 export const CURRENT_USER: User = {
   id: 'u1',
@@ -10,6 +10,43 @@ export const CURRENT_USER: User = {
   followers: 3500,
   likes: 12000
 };
+
+export const MOCK_ORDERS: Order[] = [
+  {
+    id: 'ORD-20231024-001',
+    timestamp: '2023-10-24 14:30',
+    status: 'delivered',
+    totalAmount: 299,
+    items: [
+      {
+        productId: 'tool-set-1',
+        productName: '定制工具套装',
+        productImage: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB0tgVAtLCvwh3HGnPSKJImNJDmFBzznwpkDWJVyu28SZpj-ij8YzCxJNAehmauIn16xHc29sNBXvqZGb_bTvna5iRVrDGs5nKAS5ogdp2wj8A2KlykDDaWxjLNuDJzdtB8mlYQhPgWg_SvcGzzZDTnBd-nUmpymprcNXfBP5phS79DQMxFwTwoKZPQa_Q2hWkdBv2eKv5UajTaUb0Ax0UZ1MSx5lJNLTea-GsWmF5qLVFVykHOJH3DisAG0TaLo67J6YWMoxwwqyme',
+        price: 299,
+        quantity: 1,
+        spec: '标准套装 (52件套)'
+      }
+    ],
+    trackingNumber: 'SF1234567890'
+  },
+  {
+    id: 'ORD-20231025-002',
+    timestamp: '2023-10-25 09:15',
+    status: 'shipped',
+    totalAmount: 98,
+    items: [
+      {
+        productId: 'gloves-1',
+        productName: '耐磨防滑防护手套',
+        productImage: 'https://picsum.photos/seed/gloves/600/600',
+        price: 49,
+        quantity: 2,
+        spec: '均码 (L)'
+      }
+    ],
+    trackingNumber: 'JD9876543210'
+  }
+];
 
 export const MOCK_POSTS: Post[] = [
   {
@@ -60,6 +97,16 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
     content: '赞了你的帖子《今天去龙华面试...》',
     relatedId: 'p1',
     timestamp: '10分钟前',
+    isRead: false
+  },
+  {
+    id: 'n5',
+    type: 'like',
+    sender: { name: '长安强哥', avatar: 'https://picsum.photos/seed/user4/100' },
+    content: '赞了你的评论：确实，机会多但竞争也大...',
+    relatedId: 'p1',
+    commentId: 'c1-r1',
+    timestamp: '15分钟前',
     isRead: false
   },
   {
@@ -127,7 +174,68 @@ export const MOCK_PRODUCTS: Product[] = [
     specs: ['标准套装 (52件套)', '专业级铬钒钢'],
     features: ['人体工学手柄', '坚固收纳箱', '不易生锈'],
     detailImages: [
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAvAbrzPCW6OGfVV1_a3Y1Jr39UUBHC2_Z6moKAIBONp52EPd-M760Fq8-9lYphzF0SNy9GALOJrTXla8tjaAkZM6yXMWKzL4IN8vXb9r6zkmQHzCuUlKg3x7JYpq958ywXYqNvYfjsCw_4aS63MZYdpr8VlO35UsVN6XUkGvmsxIgBY5xnXL9usf-r1wLfejySpVqIip-0F1HMMnB-SZhYxErpuqj6pg1A8yweZQwX4XeKuFyT8iWm0bo56p5tYkNWT5xovDB5GPPF'
+      'https://picsum.photos/seed/tools-detail-1/800/800',
+      'https://picsum.photos/seed/tools-detail-2/800/800'
     ]
+  },
+  {
+    id: 'gloves-1',
+    name: '耐磨防滑防护手套',
+    description: '采用高强度丁腈涂层，卓越的耐磨性和抓握力。透气背部设计，长时间佩戴不闷热，是工地作业、搬运工作的理想选择。',
+    price: 49,
+    originalPrice: 79,
+    image: 'https://picsum.photos/seed/gloves/600/600',
+    badge: '超高性价比',
+    specs: ['均码 (L)', '丁腈涂层/涤纶内衬'],
+    features: ['超强抓握', '耐油防滑', '透气舒适'],
+    detailImages: ['https://picsum.photos/seed/gloves-detail/800/800']
+  },
+  {
+    id: 'boots-1',
+    name: '定制款透气防砸劳保鞋',
+    description: '内置国标钢头，有效防护足部安全。飞织鞋面设计，轻便透气，凯夫拉防刺穿中底，保护脚底不被铁钉扎破。',
+    price: 199,
+    originalPrice: 299,
+    image: 'https://picsum.photos/seed/boots/600/600',
+    badge: '透气防砸',
+    specs: ['42码 (多码可选)', '钢头+凯夫拉底'],
+    features: ['轻便飞织', '防砸防刺', '缓震大底'],
+    detailImages: ['https://picsum.photos/seed/boots-detail/800/800']
+  },
+  {
+    id: 'vest-1',
+    name: '多功能工具收纳背心',
+    description: '专门为水电、装修师傅设计。大容量多口袋布局，让工具触手可及，高强度牛津布材质，承重力强，耐撕裂。',
+    price: 129,
+    originalPrice: 189,
+    image: 'https://picsum.photos/seed/vest/600/600',
+    badge: '收纳神器',
+    specs: ['均码可调节', '1680D双股牛津布'],
+    features: ['反光条设计', '多口袋挂载', '透气网眼'],
+    detailImages: ['https://picsum.photos/seed/vest-detail/800/800']
+  },
+  {
+    id: 'headlamp-1',
+    name: '高亮度感应强光头灯',
+    description: '户外及室内昏暗环境作业必备。具备挥手感应功能，操作更便捷；USB快充，超长续航，多档亮度调节，满足不同作业需求。',
+    price: 88,
+    originalPrice: 138,
+    image: 'https://picsum.photos/seed/headlamp/600/600',
+    badge: '强力续航',
+    specs: ['感应版 (1200流明)', '2000mAh大容量'],
+    features: ['挥手感应', 'IPX5防水', '轻量化设计'],
+    detailImages: ['https://picsum.photos/seed/headlamp-detail/800/800']
+  },
+  {
+    id: 'bottle-1',
+    name: '大容量不锈钢保温壶',
+    description: '2升超大容量，满足一整天的饮水需求。双层真空隔热技术，长效保温保冷，加厚防摔底部，耐磕碰，带便携背带。',
+    price: 59,
+    originalPrice: 99,
+    image: 'https://picsum.photos/seed/bottle/600/600',
+    badge: '24小时保温',
+    specs: ['2.0L 曜石黑', '304食用级不锈钢'],
+    features: ['一键开启', '防漏密封', '抗震耐摔'],
+    detailImages: ['https://picsum.photos/seed/bottle-detail/800/800']
   }
 ];
