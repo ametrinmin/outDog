@@ -144,11 +144,48 @@ const PostDetail: React.FC = () => {
   };
 
   const copyToClipboard = () => {
+    const url = window.location.href;
+    
+    // 优先尝试现代 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          alert('链接已复制到剪贴板');
+        })
+        .catch((err) => {
+          console.error('Clipboard writeText failed:', err);
+          fallbackCopy(url);
+        });
+    } else {
+      fallbackCopy(url);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
     try {
-      navigator.clipboard.writeText(window.location.href);
-      alert('链接已复制到剪贴板');
-    } catch (e) {
-      alert('复制失败，请手动复制浏览器地址栏链接');
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      // 样式处理，确保不会影响布局
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "-9999px";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        alert('链接已复制到剪贴板');
+      } else {
+        throw new Error('execCommand copy was unsuccessful');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      // 最终回退方案：弹窗让用户手动复制
+      window.prompt("自动复制受限，请手动复制以下链接分享给工友:", text);
     }
   };
 
