@@ -111,9 +111,10 @@ const Notifications: React.FC = () => {
                 {notif.content}
               </p>
             </div>
+            {/* 移除 animate-pulse */}
             {!notif.isRead && (
               <div className="shrink-0 pt-2">
-                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
+                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-slate-950"></div>
               </div>
             )}
           </div>

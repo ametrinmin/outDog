@@ -20,14 +20,12 @@ const PostDetail: React.FC = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [inputText, setInputText] = useState('');
   const [replyTarget, setReplyTarget] = useState<{comment: Comment, parentId?: string} | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedAttachments, setSelectedAttachments] = useState<ContentBlock[]>([]);
   
   const commentInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAuthor = post?.author.name === CURRENT_USER.name;
-  const commonEmojis = ['👍', '🙌', '🤝', '🔥', '👏', '😂', '💯', '🏠', '🛠️', '💼', '❤️', '✅', '🎉', '💪', '🙏', '✨', '🤣', '😅', '🤔', '👀', '🌟', '🚀', '🌈', '🍺'];
 
   useEffect(() => {
     if (!id) return;
@@ -38,7 +36,6 @@ const PostDetail: React.FC = () => {
       setIsMuted(post.isMuted || false);
     }
 
-    // 模拟评论数据，其中 ID 需要与通知中的 commentId 对应
     const mockComments: Comment[] = [
       {
         id: 'c1',
@@ -66,17 +63,14 @@ const PostDetail: React.FC = () => {
     setComments(mockComments);
   }, [id, post]);
 
-  // 处理从通知跳转过来的锚点定位和高亮
   useEffect(() => {
     if (comments.length > 0 && location.hash) {
       const targetId = location.hash.replace('#', '');
       const element = document.getElementById(targetId);
       if (element) {
-        // 稍微延迟确保 DOM 渲染完成
         const timer = setTimeout(() => {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           element.classList.add('highlight-comment');
-          // 3秒后移除高亮
           setTimeout(() => {
             element.classList.remove('highlight-comment');
           }, 3000);
@@ -90,23 +84,80 @@ const PostDetail: React.FC = () => {
     if (window.history.length > 1) navigate(-1); else navigate('/', { replace: true });
   };
 
+  // 通用的用户跳转逻辑
+  const handleUserClick = (userName?: string) => {
+    if (!userName) return;
+    if (userName === CURRENT_USER.name) {
+      navigate('/profile');
+    } else {
+      navigate(`/user/${userName}`);
+    }
+  };
+
+  const handlePostLike = () => {
+    const newLiked = !isLiked;
+    setIsLiked(newLiked);
+    setLikesCount(prev => newLiked ? prev + 1 : prev - 1);
+    
+    const likedPosts = JSON.parse(localStorage.getItem('outdog_liked_posts') || '[]');
+    if (newLiked) likedPosts.push(id);
+    else {
+      const idx = likedPosts.indexOf(id);
+      if (idx > -1) likedPosts.splice(idx, 1);
+    }
+    localStorage.setItem('outdog_liked_posts', JSON.stringify(likedPosts));
+  };
+
+  const handleCommentLike = (commentId: string, isReply: boolean = false, parentId?: string) => {
+    setComments(prev => prev.map(c => {
+      if (!isReply && c.id === commentId) {
+        const newIsLiked = !c.isLiked;
+        return { ...c, isLiked: newIsLiked, likes: newIsLiked ? c.likes + 1 : c.likes - 1 };
+      }
+      if (isReply && c.id === parentId && c.replies) {
+        return {
+          ...c,
+          replies: c.replies.map(r => r.id === commentId ? { ...r, isLiked: !r.isLiked, likes: !r.isLiked ? r.likes + 1 : r.likes - 1 } : r)
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: post?.title || 'OUTDOG 社区',
+      text: post?.content || '来看看这条动态',
+      url: window.location.href
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        copyToClipboard();
+      }
+    } catch (err) {
+      console.warn('Share failed:', err);
+      copyToClipboard();
+    }
+  };
+
+  const copyToClipboard = () => {
+    try {
+      navigator.clipboard.writeText(window.location.href);
+      alert('链接已复制到剪贴板');
+    } catch (e) {
+      alert('复制失败，请手动复制浏览器地址栏链接');
+    }
+  };
+
   const toggleMuteStatus = () => {
+    if (!isAuthor) return;
     const newStatus = !isMuted;
     setIsMuted(newStatus);
     if (post) post.isMuted = newStatus;
     setShowActionSheet(false);
-  };
-
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newAttachments: ContentBlock[] = Array.from(files).map((file: File) => ({
-        id: `att-${Date.now()}-${Math.random()}`,
-        type: 'image',
-        value: URL.createObjectURL(file)
-      }));
-      setSelectedAttachments(prev => [...prev, ...newAttachments]);
-    }
   };
 
   const handleSend = () => {
@@ -131,7 +182,6 @@ const PostDetail: React.FC = () => {
     setInputText('');
     setSelectedAttachments([]);
     setReplyTarget(null);
-    setShowEmojiPicker(false);
   };
 
   const renderCommentMedia = (attachments?: ContentBlock[]) => {
@@ -152,13 +202,37 @@ const PostDetail: React.FC = () => {
       <div className="absolute left-0 top-0 w-px h-full bg-slate-100 dark:bg-slate-800 ml-4 group-last/reply:h-8"></div>
       <div className="absolute left-4 top-8 w-4 h-px bg-slate-100 dark:bg-slate-800"></div>
       <div className="flex gap-3">
-        <img src={reply.author.avatar} className="w-8 h-8 rounded-full bg-white dark:bg-slate-900 z-10" alt="" />
+        <img 
+          src={reply.author.avatar} 
+          className="w-8 h-8 rounded-full bg-white dark:bg-slate-900 z-10 cursor-pointer" 
+          alt="" 
+          onClick={() => handleUserClick(reply.author.name)}
+        />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{reply.author.name}</span>
-            {reply.replyToName && (
-              <span className="text-[10px] font-bold text-blue-500/80">@{reply.replyToName}</span>
-            )}
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span 
+                className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                onClick={() => handleUserClick(reply.author.name)}
+              >
+                {reply.author.name}
+              </span>
+              {reply.replyToName && (
+                <span 
+                  className="text-[10px] font-bold text-blue-500/80 cursor-pointer"
+                  onClick={() => handleUserClick(reply.replyToName)}
+                >
+                  @{reply.replyToName}
+                </span>
+              )}
+            </div>
+            <button 
+              onClick={() => handleCommentLike(reply.id, true, parentId)}
+              className={`flex items-center gap-0.5 text-[10px] font-black ${reply.isLiked ? 'text-red-500' : 'text-slate-400'}`}
+            >
+              <span className={`material-symbols-outlined text-sm ${reply.isLiked ? 'FILL-1' : ''}`}>favorite</span>
+              {reply.likes > 0 && reply.likes}
+            </button>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{reply.content}</p>
           <div className="flex items-center gap-3 mt-2">
@@ -176,15 +250,17 @@ const PostDetail: React.FC = () => {
     <div className="bg-white dark:bg-slate-950 min-h-screen animate-in slide-in-from-right duration-300 transition-colors pb-40">
       <header className="sticky top-0 z-[60] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-between transition-colors">
         <button onClick={handleBack} className="p-2 -ml-2 text-slate-900 dark:text-white"><span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span></button>
-        <h1 className="text-base font-bold dark:text-white">帖子正文</h1>
-        <button onClick={() => setShowActionSheet(true)} className="p-2 -mr-2 text-slate-900 dark:text-white"><span className="material-symbols-outlined text-2xl">more_horiz</span></button>
+        <h1 className="text-sm font-bold dark:text-white">帖子正文</h1>
+        <button onClick={() => setShowActionSheet(true)} className="p-2 text-slate-900 dark:text-white">
+          <span className="material-symbols-outlined text-2xl">more_horiz</span>
+        </button>
       </header>
 
       <article className="px-5 py-6">
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-5 tracking-tight">{post?.title}</h1>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-5 tracking-tight leading-tight">{post?.title}</h1>
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <img src={post?.author.avatar} className="h-10 w-10 rounded-full" alt="" />
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleUserClick(post?.author.name)}>
+            <img src={post?.author.avatar} className="h-10 w-10 rounded-full bg-slate-50 border border-slate-100" alt="" />
             <div>
               <div className="text-sm font-bold dark:text-white">{post?.author.name}</div>
               <div className="text-[10px] text-slate-400 dark:text-slate-500">{post?.timestamp} · 广东</div>
@@ -193,16 +269,33 @@ const PostDetail: React.FC = () => {
           <button onClick={() => setIsFollowing(!isFollowing)} className={`px-4 py-1.5 rounded-full text-[10px] font-bold ${isFollowing ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'}`}>{isFollowing ? '已关注' : '关注'}</button>
         </div>
         <div className="space-y-4">
-          <p className="text-[16px] leading-relaxed text-slate-700 dark:text-slate-300">{post?.content}</p>
+          <p className="text-[16px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{post?.content}</p>
           {post?.images.map((img, i) => <img key={i} src={img} className="w-full rounded-2xl border border-slate-100 dark:border-slate-800" alt="" />)}
+        </div>
+
+        <div className="flex items-center justify-center gap-3 py-10 border-b border-slate-50 dark:border-slate-900">
+          <button 
+            onClick={handlePostLike}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full border transition-all active:scale-105 ${isLiked ? 'bg-red-50 border-red-100 text-red-500 dark:bg-red-900/10 dark:border-red-900/20' : 'bg-slate-50 border-slate-100 text-slate-500 dark:bg-slate-900 dark:border-slate-800'}`}
+          >
+            <span className={`material-symbols-outlined text-[18px] ${isLiked ? 'FILL-1' : ''}`}>favorite</span>
+            <span className="text-[11px] font-black">{likesCount}</span>
+          </button>
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border bg-slate-50 border-slate-100 text-slate-500 dark:bg-slate-900 dark:border-slate-800 transition-all active:scale-105"
+          >
+            <span className="material-symbols-outlined text-[18px]">ios_share</span>
+            <span className="text-[11px] font-black">分享</span>
+          </button>
         </div>
       </article>
 
-      <section className="px-5 py-6 bg-slate-50/30 dark:bg-slate-900/10 transition-colors">
+      <section className="px-5 py-6 bg-slate-50/30 dark:bg-slate-900/10">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">全部评论 <span className="text-slate-400 dark:text-slate-600 font-black ml-1 text-xs">{comments.length}</span></h3>
+          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">全部评论 <span className="text-slate-400 dark:text-slate-600 font-black ml-1 text-[10px]">{comments.length}</span></h3>
           {isMuted && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-2 py-1 rounded-lg animate-pulse">
+            <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-2 py-1 rounded-lg">
               <span className="material-symbols-outlined text-sm">lock</span>
               禁言中
             </span>
@@ -210,12 +303,29 @@ const PostDetail: React.FC = () => {
         </div>
         <div className="space-y-10">
           {comments.map((comment) => (
-            <div key={comment.id} id={`comment-${comment.id}`} className="scroll-mt-20 transition-all duration-700 rounded-2xl">
+            <div key={comment.id} id={`comment-${comment.id}`} className="scroll-mt-20 rounded-2xl">
               <div className="flex gap-4 p-2">
-                <img src={comment.author.avatar} className="w-10 h-10 rounded-full shrink-0 z-10 shadow-sm" alt="" />
+                <img 
+                  src={comment.author.avatar} 
+                  className="w-10 h-10 rounded-full shrink-0 z-10 shadow-sm cursor-pointer" 
+                  alt="" 
+                  onClick={() => handleUserClick(comment.author.name)}
+                />
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{comment.author.name}</span>
+                  <div className="flex justify-between items-start mb-1">
+                    <span 
+                      className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                      onClick={() => handleUserClick(comment.author.name)}
+                    >
+                      {comment.author.name}
+                    </span>
+                    <button 
+                      onClick={() => handleCommentLike(comment.id)}
+                      className={`flex items-center gap-1 text-xs font-black ${comment.isLiked ? 'text-red-500' : 'text-slate-400'}`}
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${comment.isLiked ? 'FILL-1' : ''}`}>favorite</span>
+                      {comment.likes > 0 && comment.likes}
+                    </button>
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{comment.content}</p>
                   {renderCommentMedia(comment.attachments)}
@@ -237,24 +347,24 @@ const PostDetail: React.FC = () => {
         {isMuted ? (
           <div className="px-5 py-6 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-600 italic">
             <span className="material-symbols-outlined text-xl">lock_open_right</span>
-            <span className="text-sm font-bold">该帖子已开启禁言，暂不支持评论</span>
+            <span className="text-sm font-bold">该帖子作者已开启禁言</span>
           </div>
         ) : (
           <div className="px-4 py-3 flex items-center gap-3 pb-8">
             <button onClick={() => fileInputRef.current?.click()} className="text-slate-400"><span className="material-symbols-outlined text-2xl">add_photo_alternate</span></button>
-            <div className="flex-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl px-4 py-2.5">
+            <div className="flex-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl px-4 py-2 flex items-center gap-2 border border-slate-50 dark:border-slate-800 shadow-inner">
               <input 
                 ref={commentInputRef}
                 type="text" 
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={replyTarget ? `回复 @${replyTarget.comment.author.name}...` : "发表你的看法..."} 
-                className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-slate-700 dark:text-slate-200"
+                placeholder={replyTarget ? `回复 @${replyTarget.comment.author.name}...` : "说点什么..."} 
+                className="w-full bg-transparent border-none focus:ring-0 text-sm p-1 text-slate-700 dark:text-slate-200"
               />
             </div>
-            <button onClick={handleSend} disabled={!inputText.trim()} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${inputText.trim() ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-300'}`}>
-              <span className="material-symbols-outlined text-xl">send</span>
+            <button onClick={handleSend} disabled={!inputText.trim()} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${inputText.trim() ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-300'}`}>
+              <span className="material-symbols-outlined text-lg">send</span>
             </button>
           </div>
         )}
@@ -263,37 +373,44 @@ const PostDetail: React.FC = () => {
       {showActionSheet && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowActionSheet(false)}></div>
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] p-6 pb-12 animate-in slide-in-from-bottom duration-300">
-            {(post?.isPinned || isAuthor) && (
-              <button 
-                onClick={toggleMuteStatus} 
-                className="w-full py-4 bg-rose-50 dark:bg-rose-900/10 text-rose-500 font-bold rounded-2xl flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined">{isMuted ? 'speaker_notes' : 'speaker_notes_off'}</span>
-                {isMuted ? '开启评论区' : '关闭评论区 (禁言)'}
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] overflow-hidden animate-in slide-in-from-bottom duration-300">
+            <div className="p-4 space-y-2">
+              <button onClick={() => { copyToClipboard(); setShowActionSheet(false); }} className="w-full py-4 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-2xl flex items-center justify-center gap-2 active:bg-slate-100 transition-colors">
+                <span className="material-symbols-outlined">link</span>
+                复制链接
               </button>
-            )}
-            <button onClick={() => setShowActionSheet(false)} className="w-full py-4 mt-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-2xl">取消</button>
+              
+              {isAuthor && (
+                <button 
+                  onClick={toggleMuteStatus} 
+                  className={`w-full py-4 font-bold rounded-2xl flex items-center justify-center gap-2 ${isMuted ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-500'}`}
+                >
+                  <span className="material-symbols-outlined">{isMuted ? 'speaker_notes' : 'speaker_notes_off'}</span>
+                  {isMuted ? '解除禁言' : '开启禁言 (仅作者本人可用)'}
+                </button>
+              )}
+              
+              {!isAuthor && (
+                <button onClick={() => { alert('举报已提交，我们会尽快核实'); setShowActionSheet(false); }} className="w-full py-4 bg-rose-50 text-rose-500 font-bold rounded-2xl flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined">report</span>
+                  投诉举报此帖
+                </button>
+              )}
+            </div>
+            <div className="p-4 pt-0">
+              <button onClick={() => setShowActionSheet(false)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-2xl">取消</button>
+            </div>
           </div>
         </div>
       )}
       
       <style>{`
-        /* 评论闪烁高亮动画 */
         .highlight-comment {
           animation: comment-flash 3s ease-out forwards;
         }
         @keyframes comment-flash {
           0% { background-color: rgba(59, 130, 246, 0.4); transform: scale(1.02); }
           20% { background-color: rgba(59, 130, 246, 0.2); transform: scale(1); }
-          100% { background-color: transparent; }
-        }
-        .dark .highlight-comment {
-          animation: comment-flash-dark 3s ease-out forwards;
-        }
-        @keyframes comment-flash-dark {
-          0% { background-color: rgba(30, 64, 175, 0.6); transform: scale(1.02); }
-          20% { background-color: rgba(30, 64, 175, 0.3); transform: scale(1); }
           100% { background-color: transparent; }
         }
         .FILL-1 { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }

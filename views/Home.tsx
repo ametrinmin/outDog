@@ -10,7 +10,6 @@ const Home: React.FC = () => {
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [allPosts, setAllPosts] = useState([...MOCK_POSTS]);
   
-  // 系统通知未读状态
   const hasUnreadNotifications = useMemo(() => MOCK_NOTIFICATIONS.some(n => !n.isRead), []);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -72,12 +71,22 @@ const Home: React.FC = () => {
     localStorage.setItem('outdog_liked_posts', JSON.stringify(newLikedIds));
   };
 
+  const handleAuthorClick = (e: React.MouseEvent, name?: string) => {
+    e.stopPropagation();
+    if (!name) return;
+    if (name === CURRENT_USER.name) {
+      navigate('/profile');
+    } else {
+      navigate(`/user/${name}`);
+    }
+  };
+
   const pinnedPosts = useMemo(() => allPosts.filter(p => p.isPinned), [allPosts]);
   const filteredPosts = useMemo(() => {
     const nonPinnedPosts = allPosts.filter(p => !p.isPinned);
     if (selectedCategory === 'all') return nonPinnedPosts;
     return nonPinnedPosts.filter(post => post.categories.includes(selectedCategory));
-  }, [selectedCategory, likedIds, allPosts]);
+  }, [selectedCategory, allPosts]);
 
   const togglePostMute = (e: React.MouseEvent, postId: string) => {
     e.stopPropagation();
@@ -109,7 +118,7 @@ const Home: React.FC = () => {
           <button onClick={() => navigate('/notifications')} className="p-2 relative rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all active:scale-90">
             <span className="material-symbols-outlined text-[22px]">notifications</span>
             {hasUnreadNotifications && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800 animate-ping"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800"></span>
             )}
           </button>
           <button onClick={() => navigate('/search')} className="p-2 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all active:scale-90">
@@ -139,7 +148,6 @@ const Home: React.FC = () => {
       </div>
 
       <main className="px-5 space-y-4 pt-2 pb-24">
-        {/* 置顶消息栏 (单行可展开) */}
         {pinnedPosts.length > 0 && (
           <div className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/20 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm">
             <div 
@@ -147,7 +155,7 @@ const Home: React.FC = () => {
               className="flex items-center justify-between px-4 py-3 cursor-pointer active:bg-blue-100/20 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <span className="material-symbols-outlined text-blue-500 text-xl animate-bounce">campaign</span>
+                <span className="material-symbols-outlined text-blue-500 text-xl">campaign</span>
                 <p className={`text-sm font-bold text-slate-800 dark:text-slate-200 ${isAnnouncementsExpanded ? '' : 'truncate'}`}>
                   {pinnedPosts[0].title}
                 </p>
@@ -167,7 +175,6 @@ const Home: React.FC = () => {
                           <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-black rounded uppercase">置顶</span>
                           <h4 className="text-sm font-black text-slate-900 dark:text-white" onClick={() => navigate(`/post/${pinned.id}`)}>{pinned.title}</h4>
                         </div>
-                        {/* 禁言开关 */}
                         <button 
                           onClick={(e) => togglePostMute(e, pinned.id)}
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold active:scale-95 transition-all ${
@@ -197,7 +204,6 @@ const Home: React.FC = () => {
           </div>
         )}
 
-        {/* 帖子信息流 */}
         {filteredPosts.map((post) => (
           <article key={post.id} onClick={() => navigate(`/post/${post.id}`)} className="bg-white dark:bg-slate-900 rounded-[24px] p-5 shadow-card border border-slate-100 dark:border-slate-800 active:scale-[0.98] transition-all cursor-pointer">
             <h3 className="text-[18px] font-black text-slate-900 dark:text-white leading-snug mb-2 line-clamp-2">{post.title}</h3>
@@ -215,7 +221,7 @@ const Home: React.FC = () => {
               ))}
             </div>
             <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5" onClick={(e) => handleAuthorClick(e, post.author.name)}>
                 <img src={post.author.avatar} className="w-6 h-6 rounded-full ring-2 ring-slate-50 dark:ring-slate-900" alt="" />
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{post.author.name}</span>
               </div>

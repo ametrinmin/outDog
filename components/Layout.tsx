@@ -40,7 +40,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isActive = (path: string) => location.pathname === path;
   
-  const hideNavPaths = ['/chat/', '/cart', '/checkout', '/product/', '/order/'];
+  // 详情页和流程页不显示底部导航栏，防止功能冲突
+  const hideNavPaths = ['/chat/', '/cart', '/checkout', '/product/', '/order/', '/post/'];
   const shouldHideNav = hideNavPaths.some(p => location.pathname.startsWith(p));
 
   return (
@@ -76,9 +77,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   {item.label}
                 </span>
                 
-                {/* 底部 Badge */}
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center animate-pulse">
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
