@@ -1,6 +1,7 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { MOCK_CHATS } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,22 +10,29 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // 模拟全局未读消息统计
+  const [unreadTotal, setUnreadTotal] = useState(0);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-    const timer = setTimeout(() => {
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: 'instant' as ScrollBehavior
-      });
-    }, 0);
-    return () => clearTimeout(timer);
+    const calculateUnread = () => {
+      const total = MOCK_CHATS.reduce((sum, chat) => sum + chat.unreadCount, 0);
+      setUnreadTotal(total);
+    };
+    calculateUnread();
+    
+    // 监听 storage 事件或页面切换来刷新计数
+    window.addEventListener('storage', calculateUnread);
+    const interval = setInterval(calculateUnread, 1000); // 轮询模拟实时
+    return () => {
+      window.removeEventListener('storage', calculateUnread);
+      clearInterval(interval);
+    };
   }, [location.pathname]);
 
   const navItems = [
     { key: '/', icon: 'forum', label: '社区' },
-    { key: '/messages', icon: 'chat_bubble_outline', label: '消息' },
+    { key: '/messages', icon: 'chat_bubble_outline', label: '消息', badge: unreadTotal },
     { key: '/publish', icon: 'add', label: '发布', isSpecial: true },
     { key: '/shop', icon: 'shopping_bag', label: '周边' },
     { key: '/profile', icon: 'person_outline', label: '我的' },
@@ -32,7 +40,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isActive = (path: string) => location.pathname === path;
   
-  // 核心变更：在交易路径下隐藏全局底部导航
   const hideNavPaths = ['/chat/', '/cart', '/checkout', '/product/', '/order/'];
   const shouldHideNav = hideNavPaths.some(p => location.pathname.startsWith(p));
 
@@ -58,7 +65,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <button
                 key={item.key}
                 onClick={() => navigate(item.key)}
-                className={`flex flex-col items-center gap-1 transition w-12 ${
+                className={`flex flex-col items-center gap-1 transition relative w-12 ${
                   isActive(item.key) ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'
                 }`}
               >
@@ -68,6 +75,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <span className={`text-[10px] ${isActive(item.key) ? 'font-bold' : 'font-medium'}`}>
                   {item.label}
                 </span>
+                
+                {/* 底部 Badge */}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center animate-pulse">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
               </button>
             )
           ))}

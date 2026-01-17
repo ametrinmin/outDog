@@ -71,6 +71,7 @@ export interface Post {
   likes: number;
   comments: number;
   isPinned?: boolean;
+  isMuted?: boolean;
 }
 
 export interface Notification {

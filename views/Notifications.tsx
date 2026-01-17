@@ -32,6 +32,7 @@ const Notifications: React.FC = () => {
   };
 
   const handleNotifClick = (notifId: string, relatedId?: string, commentId?: string) => {
+    // 标记为已读
     const updated = notifications.map(n => n.id === notifId ? { ...n, isRead: true } : n);
     setNotifications(updated);
     
@@ -39,7 +40,7 @@ const Notifications: React.FC = () => {
     if (targetIdx !== -1) MOCK_NOTIFICATIONS[targetIdx].isRead = true;
 
     if (relatedId) {
-      // 核心逻辑：如果是评论相关，携带 hash 跳转
+      // 核心交互：根据 commentId 生成锚点路径
       const path = commentId ? `/post/${relatedId}#comment-${commentId}` : `/post/${relatedId}`;
       navigate(path);
     }
@@ -112,11 +113,16 @@ const Notifications: React.FC = () => {
             </div>
             {!notif.isRead && (
               <div className="shrink-0 pt-2">
-                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-slate-950"></div>
+                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
               </div>
             )}
           </div>
         ))}
+        {filteredNotifications.length === 0 && (
+          <div className="py-20 text-center text-slate-400">
+             <p className="text-sm font-medium">暂无此类通知</p>
+          </div>
+        )}
       </main>
     </div>
   );
