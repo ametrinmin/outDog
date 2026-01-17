@@ -1,12 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MOCK_CHATS, MOCK_MESSAGES, CURRENT_USER } from '../constants';
-import { Message, ContentBlock } from '../types';
+import { MOCK_CHATS, MOCK_MESSAGES, CURRENT_USER, MOCK_POSTS } from '../constants';
+import { Message, ContentBlock, ChatSession } from '../types';
 
 const ChatRoom: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const chat = MOCK_CHATS.find(c => c.id === id);
+  
+  // 核心修复：动态计算当前的 chat 对象
+  const chat = useMemo(() => {
+    // 1. 尝试从既有模拟数据查找
+    const existing = MOCK_CHATS.find(c => c.id === id);
+    if (existing) return existing;
+
+    // 2. 如果是新会话 (ID 以 new-session_ 开头)
+    if (id?.startsWith('new-session_')) {
+      const targetName = id.split('_')[1];
+      // 从帖子中寻找该用户头像，或者给个默认的
+      const userSource = MOCK_POSTS.find(p => p.author.name === targetName);
+      const newSession: ChatSession = {
+        id: id,
+        participant: {
+          id: `u-temp-${targetName}`,
+          name: targetName,
+          avatar: userSource?.author.avatar || `https://picsum.photos/seed/${targetName}/100`
+        },
+        lastMessage: '',
+        timestamp: '刚刚',
+        unreadCount: 0
+      };
+      return newSession;
+    }
+
+    return null;
+  }, [id]);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -19,7 +47,11 @@ const ChatRoom: React.FC = () => {
   const commonEmojis = ['👍', '🙌', '🤝', '🔥', '👏', '😂', '💯', '🏠', '🛠️', '💼', '❤️', '✅', '🎉', '💪', '🙏', '✨', '🤣', '😅', '🤔', '👀', '🌟', '🚀', '🌈', '🍺'];
 
   useEffect(() => {
-    if (id && MOCK_MESSAGES[id]) setMessages(MOCK_MESSAGES[id]);
+    if (id && MOCK_MESSAGES[id]) {
+      setMessages(MOCK_MESSAGES[id]);
+    } else {
+      setMessages([]); // 新会话初始消息为空
+    }
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'instant' }), 50);
   }, [id]);
 
@@ -34,7 +66,6 @@ const ChatRoom: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      // Fix: Explicitly type the file parameter as File to resolve the 'unknown' error with URL.createObjectURL
       const newAttachments: ContentBlock[] = Array.from(files).map((file: File) => ({
         id: `m-att-${Date.now()}-${Math.random()}`,
         type: 'image',
@@ -66,7 +97,13 @@ const ChatRoom: React.FC = () => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
-  if (!chat) return <div className="p-10 text-center dark:text-white">对话不存在</div>;
+  if (!chat) return (
+    <div className="flex flex-col items-center justify-center h-screen bg-slate-50 dark:bg-slate-950 p-10 text-center">
+      <span className="material-symbols-outlined text-6xl text-slate-200 mb-4">error</span>
+      <p className="dark:text-white font-bold">对话解析失败</p>
+      <button onClick={handleBack} className="mt-4 px-6 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold">返回</button>
+    </div>
+  );
 
   const renderMessageContent = (msg: Message) => (
     <div className="flex flex-col gap-2">
@@ -98,7 +135,7 @@ const ChatRoom: React.FC = () => {
           <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
         </button>
         <div className="flex-1 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-100 dark:border-slate-800 ring-2 ring-white dark:ring-slate-900 cursor-pointer">
+          <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-100 dark:border-slate-800 ring-2 ring-white dark:ring-slate-900 cursor-pointer" onClick={() => navigate(`/user/${chat.participant.name}`)}>
             <img src={chat.participant.avatar} alt="" className="w-full h-full object-cover" />
           </div>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">{chat.participant.name}</h2>
@@ -106,7 +143,11 @@ const ChatRoom: React.FC = () => {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-24">
-        <div className="text-center"><span className="px-3 py-1 rounded-full bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 text-[10px] font-medium">会话已开启</span></div>
+        <div className="text-center">
+          <span className="px-3 py-1 rounded-full bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 text-[10px] font-medium">
+            外包工友互助频道：保护隐私，诚信交流
+          </span>
+        </div>
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'} animate-in zoom-in-95 duration-200`}>
             <div className={`flex max-w-[85%] gap-3 ${msg.isMe ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -120,6 +161,14 @@ const ChatRoom: React.FC = () => {
             </div>
           </div>
         ))}
+        {messages.length === 0 && (
+          <div className="pt-20 text-center px-10">
+            <span className="material-symbols-outlined text-4xl text-slate-200 mb-4 block">chat_bubble_outline</span>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              主动打个招呼吧，外包的兄弟们懂外包的苦。<br/>注意保护个人隐私信息。
+            </p>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </main>
 
@@ -146,7 +195,7 @@ const ChatRoom: React.FC = () => {
           <button onClick={() => fileInputRef.current?.click()} className="text-slate-400 dark:text-slate-600 p-1 active:scale-90 transition"><span className="material-symbols-outlined text-2xl">add_photo_alternate</span></button>
           <div className="flex-1 bg-slate-100/70 dark:bg-slate-900/70 rounded-2xl px-3 py-2 flex items-center gap-2 border border-slate-50 dark:border-slate-800 transition-colors shadow-inner">
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`transition ${showEmojiPicker ? 'text-blue-500' : 'text-slate-400 dark:text-slate-600'}`}><span className="material-symbols-outlined text-[22px]">mood</span></button>
-            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="说点真心话..." className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-700" />
+            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="询问派遣详情..." className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-700" />
           </div>
           <button onClick={handleSend} disabled={!inputValue.trim() && attachments.length === 0} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${inputValue.trim() || attachments.length > 0 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 scale-105' : 'bg-slate-100 dark:bg-slate-900 text-slate-300 dark:text-slate-800 shadow-none'}`}>
             <span className="material-symbols-outlined text-xl">send</span>

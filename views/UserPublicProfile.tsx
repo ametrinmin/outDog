@@ -14,7 +14,7 @@ const UserPublicProfile: React.FC = () => {
     return {
       name: name,
       avatar: userFirstPost?.author.avatar || `https://picsum.photos/seed/${name}/100`,
-      bio: '该用户很懒，还没有填写简介。',
+      bio: '这位外包工友很低调，还没有填写简介。',
       following: Math.floor(Math.random() * 200),
       followers: Math.floor(Math.random() * 5000),
       likes: Math.floor(Math.random() * 10000)
@@ -27,12 +27,14 @@ const UserPublicProfile: React.FC = () => {
 
   const handleMessage = () => {
     // 查找是否存在现有的聊天记录
-    let chatId = MOCK_CHATS.find(c => c.participant.name === name)?.id;
-    if (!chatId) {
-      // 模拟创建一个新会话
-      chatId = `new-chat-${Date.now()}`;
+    const existingChat = MOCK_CHATS.find(c => c.participant.name === name);
+    if (existingChat) {
+      navigate(`/chat/${existingChat.id}`);
+    } else {
+      // 修复：生成带有前缀的临时 ID，方便 ChatRoom 识别并动态创建会话
+      // 格式：new-chat_用户名_Base64头像(模拟)
+      navigate(`/chat/new-session_${name}`);
     }
-    navigate(`/chat/${chatId}`);
   };
 
   const handleBack = () => navigate(-1);
@@ -43,7 +45,7 @@ const UserPublicProfile: React.FC = () => {
         <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-90 text-slate-900 dark:text-white">
           <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
         </button>
-        <h1 className="flex-1 text-center mr-8 text-base font-bold text-slate-900 dark:text-white truncate">{name} 的主页</h1>
+        <h1 className="flex-1 text-center mr-8 text-base font-bold text-slate-900 dark:text-white truncate">工友主页</h1>
       </header>
 
       <div className="bg-white dark:bg-slate-900 px-6 pt-8 pb-6 border-b border-slate-100 dark:border-slate-800 transition-colors">
@@ -99,7 +101,7 @@ const UserPublicProfile: React.FC = () => {
 
       <main className="p-5 pb-24">
         <h3 className="text-sm font-black text-slate-900 dark:text-white mb-4 px-1 flex items-center gap-2">
-          动态 <span className="text-xs font-medium text-slate-400 dark:text-slate-600">{userPosts.length}</span>
+          派遣经历 <span className="text-xs font-medium text-slate-400 dark:text-slate-600">{userPosts.length}</span>
         </h3>
         <div className="space-y-4">
           {userPosts.map(post => (
@@ -128,7 +130,7 @@ const UserPublicProfile: React.FC = () => {
           {userPosts.length === 0 && (
             <div className="py-20 text-center text-slate-300 dark:text-slate-800">
               <span className="material-symbols-outlined text-5xl block mb-2 opacity-20">history_edu</span>
-              <p className="text-sm font-medium">该用户还没有发布过动态</p>
+              <p className="text-sm font-medium">该工友还没有分享过动态</p>
             </div>
           )}
         </div>
